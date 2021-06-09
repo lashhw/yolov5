@@ -25,6 +25,7 @@ from tqdm import tqdm
 from utils.general import check_requirements, check_file, check_dataset, xyxy2xywh, xywh2xyxy, xywhn2xyxy, xyn2xy, \
     segment2box, segments2boxes, resample_segments, clean_str
 from utils.torch_utils import torch_distributed_zero_first
+from utils.sticker import StickerDataset, find_space, overlay_image
 
 # Parameters
 help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
@@ -362,6 +363,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.stride = stride
         self.path = path
+        self.sd = StickerDataset('/content/sticker', img_size//2)
 
         try:
             f = []  # image files
@@ -527,6 +529,18 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
 
         if self.augment:
+            if random.random() < 0.1:
+                for _ in range(5):
+                    sticker_img, sticker_class = self.sd.get_item()
+                    sticker_h, sticker_w = sticker_img.shape[:2]
+                    space = find_space(labels, self.img_size, self.img_size, sticker_w, sticker_h)
+                    if space != None:
+                        self.sd.pop_item()
+                        labels = overlay_image(img, sticker_img, int(space[0]), int(space[1]), labels, sticker_class)
+                    else:
+                        break
+                    if random.random() < 0.5: 
+                        break
             # Augment imagespace
             if not mosaic:
                 img, labels = random_perspective(img, labels,
