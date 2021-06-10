@@ -530,7 +530,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
         if self.augment:
             if random.random() < 0.1:
-                for _ in range(5):
+                for _ in range(3):
                     sticker_img, sticker_class = self.sd.get_item()
                     sticker_h, sticker_w = sticker_img.shape[:2]
                     space = find_space(labels, self.img_size, self.img_size, sticker_w, sticker_h)
