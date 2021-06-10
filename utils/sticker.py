@@ -54,25 +54,42 @@ def find_space(labels, img_width, img_height, sticker_width, sticker_height):
   it[0:img_height] = 0
   for ve in ves:
     # find legal box
-    prev_segments = []
-    for begin, end, leftmost_x in sorted(it):
-      h = 0
-      w = img_width
+    rects = []
+    for top_y, bottom_y, leftmost_x in sorted(it):
       if leftmost_x < 0:
-        prev_segments.append((None, None))
+        rects.append((top_y, bottom_y, 0))
       else:
-        prev_segments.append((end - begin, ve.x - leftmost_x)) # height, width
-      for height, width in reversed(prev_segments):
-        if width == None:
+        rects.append((top_y, bottom_y, ve.x - leftmost_x))
+    rect_cnt = len(rects)
+    top = [None] * rect_cnt
+    top[0] = 0
+    # calculate top
+    for i in range(1, rect_cnt):
+      j = i - 1
+      while j >= 0:
+        if rects[j][2] < rects[i][2]:
           break
-        h += height
-        w = min(w, width)
-        if w >= sticker_width and h >= sticker_height:
-          x_offset = int(w - sticker_width + .5)
-          y_offset = int(h - sticker_height + .5)
-          return (ve.x - w + randrange(x_offset+1), end - h + randrange(y_offset+1))
+        j = top[j] - 1
+      top[i] = j + 1
+    # calculate bottom
+    bottom = [None] * rect_cnt
+    bottom[rect_cnt-1] = rect_cnt-1
+    for i in range(rect_cnt-2, -1, -1):
+      j = i + 1
+      while j < rect_cnt:
+        if rects[j][2] < rects[i][2]:
+          break
+        j = bottom[j] + 1
+      bottom[i] = j - 1
+    # calculate area
+    for i in range(0, rect_cnt):
+      curr_rect_w = rects[i][2]
+      curr_rect_h = rects[bottom[i]][1] - rects[top[i]][0]
+      if curr_rect_w >= sticker_width and curr_rect_h >= sticker_height:
+        x_offset = int(curr_rect_w - sticker_width)
+        y_offset = int(curr_rect_h - sticker_height)
+        return (ve.x - curr_rect_w + randrange(x_offset+1), rects[top[i]][0] + randrange(y_offset+1))
     # update interval
-    prev_begin, prev_end, prev_data = (None, None, None)
     for r in sorted(it[ve.ymin:ve.ymax]):
       original_data = r.data
       # find new_begin, new_end
@@ -83,18 +100,28 @@ def find_space(labels, img_width, img_height, sticker_width, sticker_height):
         new_data = min(-1, original_data-1)
       else:
         if original_data < -1:
-          new_data = original_data+1
+          new_data = original_data + 1
         else:
           new_data = ve.x
-
-      if new_data == prev_data: # extend end
-        prev_end = new_end
+      it.addi(new_begin, new_end, new_data)
+    # merge same inteval
+    it_list = sorted(it)
+    prev_begin = it_list[0].begin
+    prev_data = it_list[0].data
+    merge_cnt = 1
+    for r in it_list[1:]:
+      if r.data != prev_data:
+        if merge_cnt > 1:
+          it.remove_envelop(prev_begin, r.begin)
+          it.addi(prev_begin, r.begin, prev_data)
+        prev_begin = r.begin
+        prev_data = r.data
+        merge_cnt = 1
       else:
-        if prev_data != None:
-          it.addi(prev_begin, prev_end, prev_data)
-        prev_begin, prev_end, prev_data = new_begin, new_end, new_data
-    if prev_data != None:
-      it.addi(prev_begin, prev_end, prev_data)
+        merge_cnt += 1
+    if merge_cnt > 1:
+      it.remove_envelop(prev_begin, img_height)
+      it.addi(prev_begin, img_height, prev_data)
   return None
 
 
