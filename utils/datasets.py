@@ -364,6 +364,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.stride = stride
         self.path = path
         self.sd = StickerDataset('/content/sticker', img_size//2)
+        self.pending_sd = 0
 
         try:
             f = []  # image files
@@ -529,18 +530,16 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
 
         if self.augment:
-            if random.random() < 0.1:
-                for _ in range(3):
-                    sticker_img, sticker_class = self.sd.get_item()
-                    sticker_h, sticker_w = sticker_img.shape[:2]
-                    space = find_space(labels, self.img_size, self.img_size, sticker_w, sticker_h)
-                    if space != None:
-                        self.sd.pop_item()
-                        labels = overlay_image(img, sticker_img, int(space[0]), int(space[1]), labels, sticker_class)
-                    else:
-                        break
-                    if random.random() < 0.5: 
-                        break
+            if random.random() < 0.05:
+                self.pending_sd += 1
+            if self.pending_sd > 0:
+                sticker_img, sticker_class = self.sd.get_item()
+                sticker_h, sticker_w = sticker_img.shape[:2]
+                space = find_space(labels, self.img_size, self.img_size, sticker_w, sticker_h)
+                if space != None:
+                    self.sd.pop_item()
+                    labels = overlay_image(img, sticker_img, int(space[0]), int(space[1]), labels, sticker_class)
+                    self.pending_sd -= 1
             # Augment imagespace
             if not mosaic:
                 img, labels = random_perspective(img, labels,
