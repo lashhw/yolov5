@@ -126,12 +126,27 @@ def find_space(labels, img_width, img_height, sticker_width, sticker_height):
 
 
 def overlay_image(target_img, source_img, x_offset, y_offset, labels, source_class):
+  source_x1 = source_y1 = 0
+  source_x2 = source_img.shape[1]
+  source_y2 = source_img.shape[0]
   x1, x2 = x_offset, x_offset + source_img.shape[1]
   y1, y2 = y_offset, y_offset + source_img.shape[0]
-  alpha_s = source_img[:, :, 3] / 255.0
+  if x1 < 0:
+    source_x1 = -x1
+    x1 = 0
+  if y1 < 0:
+    source_y1 = -y1
+    y1 = 0
+  if x2 > target_img.shape[1]:
+    source_x2 -= x2 - target_img.shape[1]
+    x2 = target_img.shape[1]
+  if y2 > target_img.shape[0]:
+    source_y2 -= y2 - target_img.shape[0]
+    y2 = target_img.shape[0]
+  alpha_s = source_img[source_y1:source_y2, source_x1:source_x2, 3] / 255.0
   alpha_l = 1.0 - alpha_s
   for c in range(0, 3):
-    target_img[y1:y2, x1:x2, c] = (alpha_s * source_img[:, :, c] +
+    target_img[y1:y2, x1:x2, c] = (alpha_s * source_img[source_y1:source_y2, source_x1:source_x2, c] +
                                    alpha_l * target_img[y1:y2, x1:x2, c])
   return np.vstack((labels, np.array([source_class, x1, y1, x2, y2])))
 
