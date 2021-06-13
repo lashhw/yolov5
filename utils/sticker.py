@@ -196,4 +196,30 @@ def sticker_augmentation(img, sticker_avg_size, degrees=10, scale=0.2, shear=5):
   img = cv2.resize(img, dsize=(0, 0), fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_CUBIC)
   # Rotate
   img = rotate_image(img, random.uniform(-degrees, degrees))
+  # Crop Transparent
+  img = crop_transparent(img)
   return img
+ 
+ 
+def crop_transparent(img):
+  sticker_h, sticker_w = img.shape[:2]
+  left_b = top_b = 0
+  right_b = sticker_w
+  bottom_b = sticker_h
+  for i in range(sticker_w):
+    left_b = i
+    if not (img[:, i, 3] == 0).all():
+      break
+  for i in range(sticker_w - 1, -1, -1):
+    if not (img[:, i, 3] == 0).all():
+      break
+    right_b = i
+  for i in range(sticker_h):
+    top_b = i
+    if not (img[i, :, 3] == 0).all():
+      break
+  for i in range(sticker_h - 1, -1, -1):
+    if not (img[i, :, 3] == 0).all():
+      break
+    bottom = i
+  return img[top_b:bottom_b, left_b:right_b, :]
